@@ -31,13 +31,19 @@ class PetHomePage extends StatefulWidget {
 class _PetHomePageState extends State<PetHomePage> {
   final Random random = Random();
 
-  final List<String> petImages = [
-    'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQCihRwnxoxvO7JxMddi39xbFQMF8CZmsQj_g&s',
-    'https://static.wikia.nocookie.net/genshin-impact/images/6/68/%D0%A4%D0%B0%D1%83%D0%BD%D0%B0_%D0%9D%D0%B5%D1%81%D0%BF%D0%B5%D1%88%D0%BD%D0%B0%D1%8F_%D0%B2%D1%8B%D0%B4%D1%80%D0%B0_%D0%98%D0%BA%D0%BE%D0%BD%D0%BA%D0%B0.png/revision/latest/scale-to-width/360?cb=20230823165921&path-prefix=ru',
-    'https://gensh.honeyhunterworld.com/img/m_61623.webp',
-    'https://i.pinimg.com/originals/6b/97/e3/6b97e383f322ec3bc14c09772ac1fa26.png',
-    'https://github.com/Mila-Nov/c-chuvochkamu-/blob/main/Caiki-cat.png?raw=true',
-    'https://raw.githubusercontent.com/Elizavetalii/phpet/main/pet_panda_black_white.png',
+  final List<Map<String,String>> petImages = [
+    {
+      'name':'Сайки-кот',
+      'image':  'https://raw.githubusercontent.com/Mila-Nov/c-chuvochkamu-/main/Caiki-cat.png',
+    },
+   {
+      'name':'Кирара',
+      'image':  'https://raw.githubusercontent.com/Mila-Nov/c-chuvochkamu-/main/Kirara.jpg',
+    }, 
+     {
+      'name':'Выдра',
+      'image':  'https://raw.githubusercontent.com/Mila-Nov/c-chuvochkamu-/main/Vidra.webp',
+    }
   ];
 
   String petName = 'Пушинка';
@@ -65,8 +71,10 @@ class _PetHomePageState extends State<PetHomePage> {
   }
 
   void changePet() {
+    pet = petImages[random.nextInt(petImages.length)];
     setState(() {
-      petImage = petImages[random.nextInt(petImages.length)];
+      petImage = petImages['image'];
+      
       status = 'Теперь у меня новый питомец!';
     });
   }
