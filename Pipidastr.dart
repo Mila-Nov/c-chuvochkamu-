@@ -46,9 +46,9 @@ class _PetHomePageState extends State<PetHomePage> {
     }
   ];
 
-  String petName = 'Пушинка';
+  String petName = 'Кирара';
   String petImage =
-      'https://raw.githubusercontent.com/Elizavetalii/phpet/main/pet_bunny_white.png';
+      'https://raw.githubusercontent.com/Mila-Nov/c-chuvochkamu-/main/Kirara.jpg';
   String status = 'Я только проснулась. Что будем делать?';
 
   int mood = 6;
@@ -56,13 +56,17 @@ class _PetHomePageState extends State<PetHomePage> {
   int energy = 7;
   int coins = 0;
   int level = 1;
-
+  bool rnd = false;
   Color get backgroundColor {
     if (mood >= 8) return const Color(0xFFFFE4F1);
     if (mood >= 4) return const Color(0xFFE7F4FF);
     return const Color(0xFFFFE8E1);
   }
-
+  String get showPetName {
+    if (rnd == true){
+      return 'принцесса $petName';
+    }
+  }
   String get moodText {
     if (mood >= 9) return 'счастье';
     if (mood >= 6) return 'норм';
@@ -71,10 +75,10 @@ class _PetHomePageState extends State<PetHomePage> {
   }
 
   void changePet() {
-    pet = petImages[random.nextInt(petImages.length)];
+   final pet = petImages[random.nextInt(petImages.length)];
     setState(() {
-      petImage = petImages['image'];
-      
+      petImage = pet['image']!;
+      petName = pet['name']!;
       status = 'Теперь у меня новый питомец!';
     });
   }
@@ -141,8 +145,12 @@ class _PetHomePageState extends State<PetHomePage> {
 
   void buyBow() {
     setState(() {
-      if (coins >= 5) {
+      if (rnd == true){
+        status = 'вы уже купили этот предмет!';
+      }
+      else if (coins >= 5) { 
         coins -= 5;
+        rnd = true;
         mood = min(10, mood + 2);
         petName = 'Принцесса $petName';
         status = 'Купили бантик. Теперь стиль +100.';
