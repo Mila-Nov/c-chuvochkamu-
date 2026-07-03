@@ -43,6 +43,14 @@ class _PetHomePageState extends State<PetHomePage> {
      {
       'name':'Выдра',
       'image':  'https://raw.githubusercontent.com/Mila-Nov/c-chuvochkamu-/main/Vidra.webp',
+    },
+     {
+      'name':'Пеббл',
+      'image':  'https://raw.githubusercontent.com/Mila-Nov/c-chuvochkamu-/main/pebble.jpg',
+    }, 
+     {
+      'name':'Кокоа',
+      'image':  'https://raw.githubusercontent.com/Mila-Nov/c-chuvochkamu-/main/Cocoa.webp',
     }
   ];
 
@@ -57,6 +65,7 @@ class _PetHomePageState extends State<PetHomePage> {
   int coins = 0;
   int level = 1;
   bool rnd = false;
+  bool house = false;
   Color get backgroundColor {
     if (mood >= 8) return const Color(0xFFFFE4F1);
     if (mood >= 4) return const Color(0xFFE7F4FF);
@@ -66,6 +75,7 @@ class _PetHomePageState extends State<PetHomePage> {
     if (rnd == true){
       return 'принцесса $petName';
     }
+    return petName;
   }
   String get moodText {
     if (mood >= 9) return 'счастье';
@@ -73,7 +83,9 @@ class _PetHomePageState extends State<PetHomePage> {
     if (mood >= 3) return 'грусть';
     return 'обида';
   }
-
+int get chestPrice {
+  return level * 5;
+}
   void changePet() {
    final pet = petImages[random.nextInt(petImages.length)];
     setState(() {
@@ -92,7 +104,39 @@ class _PetHomePageState extends State<PetHomePage> {
       checkLevel();
     });
   }
+void openChest() {
+  setState(() {
+    if (level < 2) {
+      status = 'Сундук откроется со 2 уровня!';
+      return;
+    }
 
+    if (coins < chestPrice) {
+      status = 'Нужно $chestPrice монеток на сундук.';
+      return;
+    }
+
+    coins -= chestPrice;
+
+    final prize = random.nextInt(4);
+
+    if (prize == 0) {
+      coins += level * 10;
+      status = 'В сундуке монеты! +${level * 10}';
+    } else if (prize == 1) {
+      mood = min(10, mood + 3);
+      status = 'В сундуке волшебная конфета! Настроение +3.';
+    } else if (prize == 2) {
+      energy = min(10, energy + 4);
+      status = 'В сундуке энергетик! Энергия +4.';
+    } else {
+      hunger = max(0, hunger - 3);
+      status = 'В сундуке вкусняшка! Голод -3.';
+    }
+
+    checkLevel();
+  });
+}
   void playWithPet() {
     setState(() {
       if (energy <= 1) {
@@ -108,13 +152,33 @@ class _PetHomePageState extends State<PetHomePage> {
       checkLevel();
     });
   }
-
+void buyHouse() {
+  setState(() {
+    if (house == true) {
+      status = 'Домик уже куплен!';
+    } else if (coins >= 25) {
+      coins -= 25;
+      house = true;
+      status = '$petName теперь живет в уютном домике!';
+    } else {
+      status = 'Нужно 25 монеток на домик.';
+    }
+  });
+}
   void sleepPet() {
     setState(() {
-      energy = min(10, energy + 3);
+     if (house == true){
+       energy = min(10,energy + 5);
+       status = 'поспала в домике';
+     }
+      else{
+         energy = min(10, energy + 3);
+        status = '$petName поспала и стала бодрее.';
+      }
+     
       hunger = min(10, hunger + 1);
       mood = min(10, mood + 1);
-      status = '$petName поспала и стала бодрее.';
+      
     });
   }
 
@@ -146,16 +210,15 @@ class _PetHomePageState extends State<PetHomePage> {
   void buyBow() {
     setState(() {
       if (rnd == true){
-        status = 'вы уже купили этот предмет!';
+        status = 'вы уже купили это званиие!';
       }
-      else if (coins >= 5) { 
-        coins -= 5;
+      else if (coins >= 20) { 
+        coins -= 20;
         rnd = true;
         mood = min(10, mood + 2);
-        petName = 'Принцесса $petName';
-        status = 'Купили бантик. Теперь стиль +100.';
+        status = 'Купили звание. Теперь стиль +100.';
       } else {
-        status = 'Нужно 5 монеток. Пока не хватает.';
+        status = 'Нужно 20 монеток. Пока не хватает.';
       }
     });
   }
@@ -293,7 +356,7 @@ class _PetHomePageState extends State<PetHomePage> {
                     petPicture(),
                     const SizedBox(height: 12),
                     Text(
-                      petName,
+                      showPetName,
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
@@ -398,12 +461,7 @@ class _PetHomePageState extends State<PetHomePage> {
                     Colors.purple,
                     changePet,
                   ),
-                  actionButton(
-                    'Бантик 5',
-                    Icons.shopping_bag,
-                    Colors.deepPurple,
-                    buyBow,
-                  ),
+                
                   actionButton(
                     'Обнять',
                     Icons.favorite,
@@ -412,12 +470,55 @@ class _PetHomePageState extends State<PetHomePage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              const Text(
-                'Задание: поменяй имя, картинки, цены, события и цвета.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+        const SizedBox(height: 18),
+
+Container(
+  width: double.infinity,
+  padding: const EdgeInsets.all(18),
+  decoration: BoxDecoration(
+    color: Colors.white.withOpacity(0.9),
+    borderRadius: BorderRadius.circular(24),
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Магазин улучшений',
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      const SizedBox(height: 12),
+
+      Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+  actionButton(
+                    'повысить до принцессы - 20 монет',
+                    Icons.shopping_bag,
+                    Colors.deepPurple,
+                    buyBow,
+                  ),
+          actionButton(
+                    'купить домик - 25 монет',
+                    Icons.home,
+                    Color(0xffdea387),
+                    buyHouse,
+                  ),
+          actionButton(
+  'Сундук $chestPrice',
+  Icons.card_giftcard,
+  Colors.amber,
+  openChest,
+),
+        ],
+      ),
+    ],
+  ),
+),
+            
             ],
           ),
         ),
