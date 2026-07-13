@@ -66,6 +66,24 @@ class _PetHomePageState extends State<PetHomePage> {
   int level = 1;
   bool rnd = false;
   bool house = false;
+  int rewardDay = 1;
+bool rewardTaken = false;
+
+final List<Map<String, dynamic>> rewards = [
+  {'title': '+10 монет', 'coins': 10, 'icon': Icons.monetization_on},
+  {'title': '+15 монет', 'coins': 15, 'icon': Icons.monetization_on},
+  {'title': '+2 настроение', 'mood': 2, 'icon': Icons.favorite},
+  {'title': '+20 монет', 'coins': 20, 'icon': Icons.card_giftcard},
+  {'title': '+3 энергия', 'energy': 3, 'icon': Icons.bolt},
+  {'title': '+30 монет', 'coins': 30, 'icon': Icons.redeem},
+  {'title': 'Супер приз', 'coins': 100, 'mood': 5, 'icon': Icons.star},
+];
+  void getReward(){
+    if(rewardTaken == true){
+      status = 'ВЫ УЖЕ ЗАБРАЛИ НАГРАДУ ГРРРРРРВУАЗЦХФЖВЦСФД!!!!!!🤦‍♀️😶‍🌫️🤯😰😵😡';
+ return;
+    }
+  }
   Color get backgroundColor {
     if (mood >= 8) return const Color(0xFFFFE4F1);
     if (mood >= 4) return const Color(0xFFE7F4FF);
@@ -526,3 +544,6 @@ Container(
     );
   }
 }
+
+//Название, текст, картинка, имя автора
+
