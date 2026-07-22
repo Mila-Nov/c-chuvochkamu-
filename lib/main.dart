@@ -68,7 +68,8 @@ class _PetHomePageState extends State<PetHomePage> {
   bool house = false;
   int rewardDay = 1;
 bool rewardTaken = false;
-
+final TextEditingController promoController = TextEditingController();
+  final Set<String>userUsedPromo = {};
 final List<Map<String, dynamic>> rewards = [
   {'title': '+10 монет', 'coins': 10, 'icon': Icons.monetization_on},
   {'title': '+15 монет', 'coins': 15, 'icon': Icons.monetization_on},
@@ -78,6 +79,36 @@ final List<Map<String, dynamic>> rewards = [
   {'title': '+30 монет', 'coins': 30, 'icon': Icons.redeem},
   {'title': 'Супер приз', 'coins': 100, 'mood': 5, 'icon': Icons.star},
 ];
+  void activatePromo(){
+    String code = promoController.text.trim().toUpperCase();
+    setState((){
+      if(code.isEmpty){
+        status = 'введите промокод';
+        return;
+      }
+      if(userUsedPromo.contains(code)){
+         status = 'ВЫ УЖЕ ИСПОЛЬЗОВАЛИ ЭТОТ ПРОМОКОД!!! ААААААААААААААААААААААААААААААААААААААААА';
+      }
+      if (code == 'COOKIE') {
+      coins += 30;
+      mood = min(10, mood + 2);
+      status = 'Промокод COOKIE принят! +30 монет и настроение +2.';
+      userUsedPromo.add(code);
+    } else if (code == 'STAR') {
+      coins += 50;
+      energy = min(10, energy + 3);
+      status = 'Промокод STAR принят! +50 монет и энергия +3.';
+      userUsedPromo.add(code);
+    } else if (code == 'PRINCESS') {
+      mood = 10;
+      coins += 100;
+      status = 'Секретный промокод PRINCESS! Настроение максимум и +100 монет.';
+      userUsedPromo.add(code);
+    } else {
+      status = 'Такого промокода нет.';
+    }
+    });
+  }
   void getReward(){
     setState((){
        if(rewardTaken == true){
