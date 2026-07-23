@@ -79,6 +79,7 @@ final List<Map<String, dynamic>> rewards = [
   {'title': '+30 монет', 'coins': 30, 'icon': Icons.redeem},
   {'title': 'Супер приз', 'coins': 100, 'mood': 5, 'icon': Icons.star},
 ];
+  
   void activatePromo(){
     String code = promoController.text.trim().toUpperCase();
     setState((){
@@ -88,25 +89,47 @@ final List<Map<String, dynamic>> rewards = [
       }
       if(userUsedPromo.contains(code)){
          status = 'ВЫ УЖЕ ИСПОЛЬЗОВАЛИ ЭТОТ ПРОМОКОД!!! ААААААААААААААААААААААААААААААААААААААААА';
+         return;
       }
-      if (code == 'COOKIE') {
+     bool promoActivated = false;
+    String promoStatus = '';
+
+    if (code == 'COOKIE') {
       coins += 30;
       mood = min(10, mood + 2);
-      status = 'Промокод COOKIE принят! +30 монет и настроение +2.';
+      promoStatus = 'Промокод COOKIE принят! +30 монет и настроение +2.';
       userUsedPromo.add(code);
+      promoActivated = true;
     } else if (code == 'STAR') {
       coins += 50;
       energy = min(10, energy + 3);
-      status = 'Промокод STAR принят! +50 монет и энергия +3.';
+      promoStatus = 'Промокод STAR принят! +50 монет и энергия +3.';
       userUsedPromo.add(code);
+      promoActivated = true;
     } else if (code == 'PRINCESS') {
       mood = 10;
       coins += 100;
-      status = 'Секретный промокод PRINCESS! Настроение максимум и +100 монет.';
+      promoStatus = 'Секретный промокод PRINCESS! Настроение максимум и +100 монет.';
       userUsedPromo.add(code);
+      promoActivated = true;
     } else {
       status = 'Такого промокода нет.';
+      return;
     }
+
+    if (promoActivated) {
+      int oldLevel = level;
+
+      checkLevel();
+
+      if (level > oldLevel) {
+        status = '$promoStatus Новый уровень: $level!';
+      } else {
+        status = promoStatus;
+      }
+    }
+      
+      promoController.clear();
     });
   }
   void getReward(){
@@ -370,6 +393,37 @@ Widget rewardCard(int index) {
         ),
       ],
     ),
+  );
+}
+  void showPromoDialog() {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Секретный промокод'),
+        content: TextField(
+          controller: promoController,
+          decoration: const InputDecoration(
+            hintText: 'Например: COOKIE',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Закрыть'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              activatePromo();
+            },
+            child: const Text('Активировать'),
+          ),
+        ],
+      );
+    },
   );
 }
   void showRewardCalendar() {
@@ -744,6 +798,12 @@ actionButton(
                     Colors.redAccent,
                     hugPet,
                   ),
+                  actionButton(
+  'Промокод',
+  Icons.lock_open,
+  Colors.deepPurple,
+  showPromoDialog,
+),
                 ],
               ),
         const SizedBox(height: 18),
