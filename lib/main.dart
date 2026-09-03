@@ -205,7 +205,7 @@ int get chestPrice {
       hunger = max(0, hunger - 2);
       mood = min(10, mood + 1);
       coins += 1;
-      status = '$petName вкусно поела и получила +1 монетку.';
+      status = '$petName очень вкусно поела';
       checkLevel();
     });
   }
@@ -864,4 +864,3 @@ Container(
 }
 
 //Название, текст, картинка, имя автора
-
