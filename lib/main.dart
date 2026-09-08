@@ -204,11 +204,36 @@ int get chestPrice {
     setState(() {
       hunger = max(0, hunger - 2);
       mood = min(10, mood + 1);
-      coins += 1;
+      coins -= 1;
       status = '$petName очень вкусно поела';
       checkLevel();
     });
   }
+  import 'dart:math';
+
+void stealFood() {
+  final random = Random();
+  // Например, 70% шанс, что повезёт, 30% — что поймают
+  final isCaught = random.nextDouble() < 0.3;
+
+  setState(() {
+    if (isCaught) {
+      // Поймали: штраф по настроению и энергии
+      mood = max(0, mood - 3);
+      energy = max(0, energy - 2); // если у тебя есть параметр energy
+      status = '$petName поймали за воровством! Настроение и энергия сильно упали.';
+    } else {
+      // Повезло: уменьшаем голод
+      hunger = max(0, hunger - 2);
+      status = '$petName ловко стащила еду и наелась! Никто не заметил.';
+      
+      // Опционально: небольшой бонус к настроению за «адреналиновый кайф»
+      // mood = min(10, mood + 1);
+    }
+    checkLevel();
+  });
+}
+
 void openChest() {
   setState(() {
     if (level < 2) {
