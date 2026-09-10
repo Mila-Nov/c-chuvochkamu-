@@ -200,39 +200,57 @@ int get chestPrice {
     });
   }
 
-  void feedPet() {
-    setState(() {
-      hunger = max(0, hunger - 2);
-      mood = min(10, mood + 1);
-      coins -= 1;
-      status = '$petName очень вкусно поела';
-      checkLevel();
-    });
-  }
-  import 'dart:math';
+ int stealAttempts = 0; // счётчик попыток кражи, сбрасывается после успешной покупки
 
-void stealFood() {
+void feedPet() {
+  const int foodPrice = 1; // стоимость еды в магазине
+
+  // ── 1. Есть деньги — просто покупаем еду ──
+  if (coins >= foodPrice) {
+    setState(() {
+      coins -= foodPrice;
+      hunger = max(0, hunger - 3);
+      stealAttempts = 0; // сброс счётчика краж после покупки
+      status = '$petName купил(а) еду в магазине. Приятно поел(а)!';
+    });
+    checkLevel();
+    return;
+  }
+
+  // ── 2. Денег нет — пытаемся украсть (макс. 3 раза) ──
+  if (stealAttempts >= 3) {
+    setState(() {
+      status = 'Денег на еду нет, а красть больше нельзя — $petName был(а) пойман(а) слишком много раз. Нужно заработать!';
+    });
+    return;
+  }
+
+  // ── 3. Попытка кражи ──
   final random = Random();
-  // Например, 70% шанс, что повезёт, 30% — что поймают
-  final isCaught = random.nextDouble() < 0.3;
+  // Шанс успеха уменьшается с каждой попыткой: 1-я — 70%, 2-я — 50%, 3-я — 30%
+  double successChance = 0.7 - (stealAttempts * 0.2);
+  bool isSuccess = random.nextDouble() < successChance;
 
   setState(() {
-    if (isCaught) {
-      // Поймали: штраф по настроению и энергии
-      mood = max(0, mood - 3);
-      energy = max(0, energy - 2); // если у тебя есть параметр energy
-      status = '$petName поймали за воровством! Настроение и энергия сильно упали.';
+    stealAttempts++;
+
+    if (isSuccess) {
+      // Успешная кража: голод уменьшается, настроение растёт
+      hunger = max(0, hunger - 3);
+      mood = min(10, mood + 2);
+      status = '$petName ловко стащил(а) еду и никого не поймали! Голод утолён, настроение поднялось.';
     } else {
-      // Повезло: уменьшаем голод
-      hunger = max(0, hunger - 2);
-      status = '$petName ловко стащила еду и наелась! Никто не заметил.';
-      
-      // Опционально: небольшой бонус к настроению за «адреналиновый кайф»
-      // mood = min(10, mood + 1);
+      // Неудачная кража: энергия и настроение падают, голод растёт
+      energy = max(0, energy - 3);
+      mood = max(0, mood - 3);
+      hunger = min(10, hunger + 1);
+      status = '$petName поймали за воровством! Энергия и настроение упали, а от стресса есть хочется ещё больше.';
     }
-    checkLevel();
   });
+
+  checkLevel();
 }
+
 
 void openChest() {
   setState(() {
