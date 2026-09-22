@@ -1,5 +1,41 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+class Prize {
+  final String name;
+  final int weight;
+  final String type;
+  final int value;
+
+  const Prize({
+    required this.name,
+    required this.weight,
+    this.type = 'none',
+    this.value = 0,
+  });
+}
+
+class LuckWheel {
+  static final Random _random = Random();
+
+  /// Возвращает приз из списка по взвешенному случайному выбору.
+  /// Чем больше weight — тем выше шанс выпадения.
+  static Prize spin(List<Prize> prizes) {
+    int totalWeight = prizes.fold(0, (sum, p) => sum + p.weight);
+    if (totalWeight <= 0) return prizes.first;
+
+    int roll = _random.nextInt(totalWeight);
+    int cumulative = 0;
+
+    for (final prize in prizes) {
+      cumulative += prize.weight;
+      if (roll < cumulative) {
+        return prize;
+      }
+    }
+
+    return prizes.last;
+  }
+}
 
 void main() {
   runApp(const PetMoodApp());
@@ -30,6 +66,58 @@ class PetHomePage extends StatefulWidget {
 
 class _PetHomePageState extends State<PetHomePage> {
   final Random random = Random();
+  // Сектора колеса с весами (чем больше weight, тем реже выпадает)
+  final List<Prize> wheelPrizes = [
+    const Prize(name: 'Пусто', weight: 15),
+    const Prize(name: '+5 монет', weight: 20, type: 'coins', value: 5),
+    const Prize(name: '+10 монет', weight: 12, type: 'coins', value: 10),
+    const Prize(name: '-1 Энергия', weight: 10, type: 'energy', value: -1),
+    const Prize(name: '+2 Настроение', weight: 15, type: 'mood', value: 2),
+    const Prize(name: '+1 Энергия', weight: 12, type: 'energy', value: 1),
+    const Prize(name: 'Джекпот! +50 монет', weight: 3, type: 'coins', value: 50),
+    const Prize(name: 'Голод +2', weight: 13, type: 'hunger', value: 2),
+  ];
+  void spinWheel() {
+    if (_isSpinning) return;
+
+    final Prize prize = LuckWheel.spin(wheelPrizes);
+
+    setState(() {
+      _isSpinning = true;
+      _lastResult = '';
+    });
+
+    // Применяем приз после "вращения" (3 секунды)
+    Future.delayed(const Duration(seconds: 3), () {
+      setState(() {
+        _isSpinning = false;
+        _lastResult = prize.name;
+
+        switch (prize.type) {
+          case 'coins':
+            coins += prize.value;
+            status = 'Колесо удачи: ${prize.name}!';
+            break;
+          case 'mood':
+            mood = min(10, mood + prize.value);
+            status = 'Колесо удачи: ${prize.name}!';
+            break;
+          case 'energy':
+            energy = max(0, min(10, energy + prize.value));
+            status = 'Колесо удачи: ${prize.name}!';
+            break;
+          case 'hunger':
+            hunger = max(0, min(10, hunger + prize.value));
+            status = 'Колесо удачи: ${prize.name}!';
+            break;
+          default:
+            status = 'Колесо удачи: Пусто! Повезёт в следующий раз.';
+        }
+
+        checkLevel();
+      });
+    });
+  }
 
   final List<Map<String,String>> petImages = [
     {
@@ -801,17 +889,25 @@ void initState() {
                 ),
               ),
               const SizedBox(height: 18),
-              Wrap(
+                            Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 alignment: WrapAlignment.center,
                 children: [
+                  actionButton(
+                    'Колесо удачи',
+                    Icons.circle,
+                    Colors.cyan,
+                    spinWheel,
+                  ),
                   actionButton(
   'Награды',
   Icons.calendar_month,
   Colors.amber,
   showRewardCalendar,
 ),
+
+
 actionButton(
   'Новый день',
   Icons.next_plan,
