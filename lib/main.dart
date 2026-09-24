@@ -13,6 +13,74 @@ class Prize {
     this.value = 0,
   });
 }
+class WheelPainter extends CustomPainter {
+  final List<String> labels;
+  final List<Color> colors;
+  final int selectedIndex;
+
+  WheelPainter({
+    required this.labels,
+    required this.colors,
+    required this.selectedIndex,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double radius = size.width / 2;
+    final Paint paint = Paint()..style = PaintingStyle.fill;
+    final double anglePerSector = 2 * pi / labels.length;
+
+    for (int i = 0; i < labels.length; i++) {
+      final double startAngle = i * anglePerSector;
+      final double endAngle = startAngle + anglePerSector;
+
+      paint.color = colors[i % colors.length];
+      final Path path = Path()
+        ..moveTo(radius, radius)
+        ..arcToPoint(
+          Offset(
+            radius + radius * cos(endAngle),
+            radius + radius * sin(endAngle),
+          ),
+          radius: Radius.circular(radius),
+          largeArc: false,
+        )
+        ..close();
+      canvas.drawPath(path, paint);
+
+      final double midAngle = startAngle + anglePerSector / 2;
+      final double textRadius = radius * 0.7;
+      final TextPainter tp = TextPainter(
+        text: TextSpan(
+          text: labels[i],
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      tp.layout();
+      final double textX = radius + textRadius * cos(midAngle) - tp.width / 2;
+      final double textY = radius + textRadius * sin(midAngle) - tp.height / 2;
+      tp.paint(canvas, Offset(textX, textY));
+    }
+
+    // Стрелка
+    final Paint arrowPaint = Paint()..color = Colors.red;
+    final Path arrow = Path()
+      ..moveTo(radius, radius * 0.1)
+      ..lineTo(radius - 15, radius * 0.4)
+      ..lineTo(radius, radius * 0.1)
+      ..lineTo(radius + 15, radius * 0.4)
+      ..close();
+    canvas.drawPath(arrow, arrowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
 
 class LuckWheel {
   static final Random _random = Random();
@@ -66,6 +134,21 @@ class PetHomePage extends StatefulWidget {
 
 class _PetHomePageState extends State<PetHomePage> {
   final Random random = Random();
+  bool _isSpinning = false;
+  String _lastResult = '';
+  final List<Color> wheelColors = [
+    Colors.blue,
+    Colors.cyan,
+    Colors.green,
+    Colors.lime,
+    Colors.orange,
+    Colors.amber,
+    Colors.red,
+    Colors.purple,
+  ];
+
+  List<String> get wheelLabels => wheelPrizes.map((p) => p.name).toList();
+
   // Сектора колеса с весами (чем больше weight, тем реже выпадает)
   final List<Prize> wheelPrizes = [
     const Prize(name: 'Пусто', weight: 15),
@@ -77,7 +160,86 @@ class _PetHomePageState extends State<PetHomePage> {
     const Prize(name: 'Джекпот! +50 монет', weight: 3, type: 'coins', value: 50),
     const Prize(name: 'Голод +2', weight: 13, type: 'hunger', value: 2),
   ];
-  void spinWheel() {
+  void showWheelDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Колесо удачи', textAlign: TextAlign.center),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_isSpinning)
+                    const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator(),
+                    )
+                  else if (_lastResult.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        _lastResult,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text(
+                        'Нажми "Крутить"!',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                if (!_isSpinning)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Закрыть'),
+                  ),
+                if (!_isSpinning && _lastResult.isNotEmpty)
+                  ElevatedButton(
+                    onPressed: () {
+                      _lastResult = '';
+                      spinWheel();
+                      setDialogState(() {});
+                      // Обновляем диалог через 3 секунды
+                      Future.delayed(const Duration(seconds: 3), () {
+                        setDialogState(() {});
+                      });
+                    },
+                    child: const Text('Ещё раз'),
+                  ),
+                if (!_isSpinning && _lastResult.isEmpty)
+                  ElevatedButton(
+                    onPressed: () {
+                      spinWheel();
+                      setDialogState(() {});
+                      Future.delayed(const Duration(seconds: 3), () {
+                        setDialogState(() {});
+                      });
+                    },
+                    child: const Text('Крутить'),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+  
+void spinWheel() {
     if (_isSpinning) return;
 
     final Prize prize = LuckWheel.spin(wheelPrizes);
@@ -898,7 +1060,7 @@ void initState() {
                     'Колесо удачи',
                     Icons.circle,
                     Colors.cyan,
-                    spinWheel,
+                    showWheelDialog
                   ),
                   actionButton(
   'Награды',
@@ -1016,4 +1178,93 @@ Container(
   }
 }
 
-//Название, текст, картинка, имя автора
+class WheelScreen extends StatefulWidget {
+  final List<Prize> prizes;
+  final List<Color> colors;
+  const WheelScreen({super.key, required this.prizes, required this.colors});
+
+  @override
+  State<WheelScreen> createState() => _WheelScreenState();
+}
+
+class _WheelScreenState extends State<WheelScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  bool _isSpinning = false;
+  String _lastResult = '';
+  int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(duration: const Duration(seconds: 3), vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void spinWheel() {
+    if (_isSpinning) return;
+    _controller.reset();
+    _controller.forward();
+    setState(() => _isSpinning = true);
+
+    final Prize prize = LuckWheel.spin(widget.prizes);
+
+    Future.delayed(const Duration(seconds: 3), () {
+      setState(() {
+        _isSpinning = false;
+        _lastResult = prize.name;
+        _selectedIndex = widget.prizes.indexOf(prize);
+      });
+      // Здесь добавь логику применения приза (switch case из прошлого ответа)
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Колесо удачи')),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: 240,
+              height: 240,
+              child: CustomPaint(
+                painter: WheelPainter(
+                  labels: widget.prizes.map((p) => p.name).toList(),
+                  colors: widget.colors,
+                  selectedIndex: _selectedIndex,
+                ),
+                child: RotationTransition(
+                  turns: Tween<double>(begin: 0, end: 10 + Random().nextDouble()).animate(
+                    CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+                  ),
+                  child: const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('Крутить колесо'),
+            onPressed: _isSpinning ? null : spinWheel,
+          ),
+          if (_lastResult.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Выпало: \$_lastResult',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
