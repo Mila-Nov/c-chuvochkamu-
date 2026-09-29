@@ -160,84 +160,18 @@ class _PetHomePageState extends State<PetHomePage> {
     const Prize(name: 'Джекпот! +50 монет', weight: 3, type: 'coins', value: 50),
     const Prize(name: 'Голод +2', weight: 13, type: 'hunger', value: 2),
   ];
-  void showWheelDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Колесо удачи', textAlign: TextAlign.center),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_isSpinning)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: CircularProgressIndicator(),
-                    )
-                  else if (_lastResult.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        _lastResult,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  else
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text(
-                        'Нажми "Крутить"!',
-                        style: TextStyle(fontSize: 18),
-                      ),
-                    ),
-                ],
-              ),
-              actions: [
-                if (!_isSpinning)
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Закрыть'),
-                  ),
-                if (!_isSpinning && _lastResult.isNotEmpty)
-                  ElevatedButton(
-                    onPressed: () {
-                      _lastResult = '';
-                      spinWheel();
-                      setDialogState(() {});
-                      // Обновляем диалог через 3 секунды
-                      Future.delayed(const Duration(seconds: 3), () {
-                        setDialogState(() {});
-                      });
-                    },
-                    child: const Text('Ещё раз'),
-                  ),
-                if (!_isSpinning && _lastResult.isEmpty)
-                  ElevatedButton(
-                    onPressed: () {
-                      spinWheel();
-                      setDialogState(() {});
-                      Future.delayed(const Duration(seconds: 3), () {
-                        setDialogState(() {});
-                      });
-                    },
-                    child: const Text('Крутить'),
-                  ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
+ void showWheelDialog() { // оставь имя, если кнопка привязана к нему
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => WheelScreen(
+        prizes: wheelPrizes,
+        colors: wheelColors,
+      ),
+    ),
+  );
+}
+
   
 void spinWheel() {
     if (_isSpinning) return;
