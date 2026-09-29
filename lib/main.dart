@@ -26,60 +26,132 @@ class WheelPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double radius = size.width / 2;
-    final Paint paint = Paint()..style = PaintingStyle.fill;
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final double radius = min(size.width, size.height) / 2 - 4;
     final double anglePerSector = 2 * pi / labels.length;
 
+    final Rect wheelRect = Rect.fromCircle(
+      center: center,
+      radius: radius,
+    );
+
     for (int i = 0; i < labels.length; i++) {
-      final double startAngle = i * anglePerSector;
-      final double endAngle = startAngle + anglePerSector;
-
-      paint.color = colors[i % colors.length];
-      final Path path = Path()
-        ..moveTo(radius, radius)
-        ..arcToPoint(
-          Offset(
-            radius + radius * cos(endAngle),
-            radius + radius * sin(endAngle),
-          ),
-          radius: Radius.circular(radius),
-          largeArc: false,
-        )
-        ..close();
-      canvas.drawPath(path, paint);
-
+      // Первый сектор располагаем по центру верхней части колеса.
+      final double startAngle =
+          -pi / 2 - anglePerSector / 2 + i * anglePerSector;
       final double midAngle = startAngle + anglePerSector / 2;
-      final double textRadius = radius * 0.7;
-      final TextPainter tp = TextPainter(
+
+      final Color sectorColor = colors[i % colors.length];
+
+      // Рисуем настоящий сектор круга, а не лепесток.
+      canvas.drawArc(
+        wheelRect,
+        startAngle,
+        anglePerSector,
+        true,
+        Paint()
+          ..color = sectorColor
+          ..style = PaintingStyle.fill,
+      );
+
+      // Разделительная линия между секторами.
+      final Offset sectorEdge = Offset(
+        center.dx + radius * cos(startAngle),
+        center.dy + radius * sin(startAngle),
+      );
+
+      canvas.drawLine(
+        center,
+        sectorEdge,
+        Paint()
+          ..color = Colors.white.withOpacity(0.75)
+          ..strokeWidth = 2,
+      );
+
+      // Выбираем контрастный цвет текста.
+      final bool darkSector =
+          ThemeData.estimateBrightnessForColor(sectorColor) ==
+              Brightness.dark;
+
+      final TextPainter textPainter = TextPainter(
         text: TextSpan(
           text: labels[i],
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
+          style: TextStyle(
+            color: darkSector ? Colors.white : Colors.black87,
+            fontSize: 11,
             fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: darkSector ? Colors.black54 : Colors.white70,
+                blurRadius: 2,
+              ),
+            ],
           ),
         ),
+        textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
+        maxLines: 2,
+        ellipsis: '…',
       );
-      tp.layout();
-      final double textX = radius + textRadius * cos(midAngle) - tp.width / 2;
-      final double textY = radius + textRadius * sin(midAngle) - tp.height / 2;
-      tp.paint(canvas, Offset(textX, textY));
+
+      textPainter.layout(maxWidth: radius * 0.72);
+
+      // Располагаем и поворачиваем текст внутри сектора.
+      final double textRadius = radius * 0.62;
+      final Offset textPosition = Offset(
+        center.dx + textRadius * cos(midAngle),
+        center.dy + textRadius * sin(midAngle),
+      );
+
+      canvas.save();
+      canvas.translate(textPosition.dx, textPosition.dy);
+
+      double textAngle = midAngle;
+
+      // На левой половине переворачиваем текст,
+      // чтобы он не отображался вверх ногами.
+      if (cos(midAngle) < 0) {
+        textAngle += pi;
+      }
+
+      canvas.rotate(textAngle);
+      textPainter.paint(
+        canvas,
+        Offset(-textPainter.width / 2, -textPainter.height / 2),
+      );
+      canvas.restore();
     }
 
-    // Стрелка
-    final Paint arrowPaint = Paint()..color = Colors.red;
-    final Path arrow = Path()
-      ..moveTo(radius, radius * 0.1)
-      ..lineTo(radius - 15, radius * 0.4)
-      ..lineTo(radius, radius * 0.1)
-      ..lineTo(radius + 15, radius * 0.4)
-      ..close();
-    canvas.drawPath(arrow, arrowPaint);
+    // Внешняя рамка делает колесо визуально цельным.
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5,
+    );
+
+    // Центральная декоративная кнопка.
+    canvas.drawCircle(
+      center,
+      15,
+      Paint()..color = Colors.white,
+    );
+
+    canvas.drawCircle(
+      center,
+      10,
+      Paint()..color = Colors.pinkAccent,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant WheelPainter oldDelegate) {
+    return oldDelegate.labels != labels ||
+        oldDelegate.colors != colors ||
+        oldDelegate.selectedIndex != selectedIndex;
+  }
 }
 
 class LuckWheel {
@@ -1164,26 +1236,50 @@ class _WheelScreenState extends State<WheelScreen> with SingleTickerProviderStat
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Align(
-            alignment: Alignment.center,
-            child: SizedBox(
-              width: 240,
-              height: 240,
-              child: CustomPaint(
-                painter: WheelPainter(
-                  labels: widget.prizes.map((p) => p.name).toList(),
-                  colors: widget.colors,
-                  selectedIndex: _selectedIndex,
-                ),
-                child: RotationTransition(
-                  turns: Tween<double>(begin: 0, end: 10 + Random().nextDouble()).animate(
-                    CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-                  ),
-                  child: const SizedBox.shrink(),
-                ),
+         Align(
+  alignment: Alignment.center,
+  child: SizedBox(
+    width: 300,
+    height: 300,
+    child: Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        // RotationTransition должен оборачивать само колесо.
+        RotationTransition(
+          turns: Tween<double>(
+            begin: 0,
+            end: 10,
+          ).animate(
+            CurvedAnimation(
+              parent: _controller,
+              curve: Curves.easeOutCubic,
+            ),
+          ),
+          child: SizedBox.expand(
+            child: CustomPaint(
+              painter: WheelPainter(
+                labels: widget.prizes.map((p) => p.name).toList(),
+                colors: widget.colors,
+                selectedIndex: _selectedIndex,
               ),
             ),
           ),
+        ),
+
+        // Стрелка остаётся неподвижной, пока колесо вращается.
+        const Positioned(
+          top: -13,
+          child: Icon(
+            Icons.arrow_drop_down,
+            size: 48,
+            color: Colors.red,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
           const SizedBox(height: 32),
           ElevatedButton.icon(
             icon: const Icon(Icons.play_arrow),
@@ -1193,7 +1289,7 @@ class _WheelScreenState extends State<WheelScreen> with SingleTickerProviderStat
           if (_lastResult.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text(
-              'Выпало: \$_lastResult',
+              'Выпало: $_lastResult',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
