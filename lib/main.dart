@@ -176,6 +176,131 @@ class LuckWheel {
     return prizes.last;
   }
 }
+// ─────────────────────────────────────────────────────────────
+// ДОСТИЖЕНИЯ
+// Класс Achievement — это одна ачивка: название, история,
+// иконка и награда монетами. Условие разблокировки хранится
+// отдельно, в методе checkAchievements().
+// ─────────────────────────────────────────────────────────────
+class Achievement {
+  final String id;        // уникальный код, по которому мы её находим
+  final String title;     // название, которое видит игрок
+  final String story;     // текст-история для карточки
+  final IconData icon;    // иконка из набора Material
+  final int rewardCoins;  // сколько монет даёт разблокировка
+
+  const Achievement({
+    required this.id,
+    required this.title,
+    required this.story,
+    required this.icon,
+    required this.rewardCoins,
+  });
+}
+
+// Полный список достижений. Порядок важен: в checkAchievements
+// мы обращаемся к ним по индексу [0], [1] и так далее.
+final List<Achievement> achievements = [
+  // ── Сюжетное ──
+  const Achievement(
+    id: 'jackpot_once',
+    title: 'Судьба благосклонна',
+    story: 'Колесо закрутилось, мир закружился… И вот оно — ЗОЛОТО!',
+    icon: Icons.stars,
+    rewardCoins: 25,
+  ),
+  // ── Хардкорные ──
+  const Achievement(
+    id: 'steal_streak_10',
+    title: 'Тень без права на ошибку',
+    story: 'Один промах — и всё кончено. Я крала десять раз подряд, '
+        'и каждый раз хозяйка даже не поворачивала головы. '
+        'Это не везение. Это мастерство.',
+    icon: Icons.security,
+    rewardCoins: 80,
+  ),
+  const Achievement(
+    id: 'wheel_curse_5',
+    title: 'Проклятие колеса',
+    story: 'Я крутила и крутила… и снова „Пусто“. Пять раз подряд. '
+        'Мир будто издевался. Но я не сдалась. '
+        'И именно поэтому это достижение — моё.',
+    icon: Icons.circle_outlined,
+    rewardCoins: 60,
+  ),
+  const Achievement(
+    id: 'perfect_balance_3',
+    title: 'Абсолютный контроль',
+    story: 'Голод, энергия, настроение — всё в зелёной зоне. '
+        'Три дня подряд я держала баланс идеально. Ни одной ошибки. '
+        'Это был не день — это была операция.',
+    icon: Icons.monitor_heart,
+    rewardCoins: 90,
+  ),
+  const Achievement(
+    id: 'no_spend_level_7',
+    title: 'Без единой монеты',
+    story: 'Я не тратила монеты. Вообще. Ни на домик, ни на звание, '
+        'ни на сундук. Только то, что зарабатывала и воровала. '
+        'Чистый путь выживания.',
+    icon: Icons.money_off,
+    rewardCoins: 120,
+  ),
+  const Achievement(
+    id: 'promo_master',
+    title: 'Мастер промокодов',
+    story: 'Три промокода — это легко. Но активировать их все '
+        'в течение 24 часов после первого входа? '
+        'Это уже проверка на внимательность. Я не упустила момент.',
+    icon: Icons.code,
+    rewardCoins: 70,
+  ),
+  const Achievement(
+    id: 'jackpot_streak_2',
+    title: 'Серийный везунчик',
+    story: 'Джекпот один раз — удача. Два раза подряд — судьба. '
+        'Я поймала эту волну и не отпустила. '
+        'Мир дал мне золото — я его взяла.',
+    icon: Icons.star,
+    rewardCoins: 100,
+  ),
+  const Achievement(
+    id: 'invisible_threat_5',
+    title: 'Невидимая угроза',
+    story: 'Меня не видели. Не слышали. Не ловили. Пять дней подряд '
+        'я воровала еду, и хозяйка ничего не замечала. '
+        'Это не просто удача — это искусство быть незаметной.',
+    icon: Icons.visibility_off,
+    rewardCoins: 85,
+  ),
+  const Achievement(
+    id: 'marathon_50',
+    title: 'Бесконечный марафон',
+    story: 'Я не останавливалась. 50 вращений колеса за одну сессию. '
+        'Руки устали, глаза устали, но стрелка крутилась. '
+        'И я видела каждый её поворот.',
+    icon: Icons.timer,
+    rewardCoins: 110,
+  ),
+  const Achievement(
+    id: 'perfect_day',
+    title: 'Идеальный день',
+    story: 'День, когда всё сошлось: я украла еду, выиграла на колесе, '
+        'подняла настроение питомцу и не была поймана. '
+        'Один такой день стоит десяти обычных.',
+    icon: Icons.check_circle,
+    rewardCoins: 95,
+  ),
+  const Achievement(
+    id: 'legend_no_title',
+    title: 'Легенда без титула',
+    story: 'Мне не нужна корона, чтобы быть легендой. '
+        'Я достигла 10-го уровня без покупки домика '
+        'и без звания „принцесса“. Только мои навыки и моя воля.',
+    icon: Icons.emoji_events,
+    rewardCoins: 150,
+  ),
+];
 
 void main() {
   runApp(const PetMoodApp());
@@ -205,6 +330,30 @@ class PetHomePage extends StatefulWidget {
 }
 
 class _PetHomePageState extends State<PetHomePage> {
+// ─────────────────────────────────────────────────────────────
+// СЧЁТЧИКИ ДЛЯ ДОСТИЖЕНИЙ
+// Каждый счётчик обслуживает одну конкретную ачивку.
+// Слова "consecutive" = "подряд": как только серия прерывается,
+// счётчик обнуляем обратно в 0.
+// ─────────────────────────────────────────────────────────────
+
+final Set<String> unlockedAchievements = {}; // id уже открытых ачивок
+
+int consecutiveSuccessfulSteals = 0; // серия успешных краж подряд (ачивка 2)
+int consecutiveEmptySpins = 0;       // серия "Пусто" на колесе подряд (ачивка 3)
+int perfectBalanceDays = 0;          // дни с идеальным балансом подряд (ачивка 4)
+bool everSpentCoins = false;         // тратила ли игрок монеты хоть раз (ачивка 5)
+int jackpotStreak = 0;               // серия джекпотов подряд (ачивка 7)
+int invisibleDays = 0;               // дни кражи без поимки подряд (ачивка 8)
+int totalSpinsSession = 0;           // вращений колеса за сессию (ачивка 9)
+
+// Флаги "идеального дня" (ачивка 10). Каждый сбрасывается
+// при нажатии "Новый день", поэтому они не требуют Series-логики.
+bool perfectDayStoleFood = false;    // успешная кража была в этот день
+bool perfectDayWheelWin = false;     // выигрыш на колесе был в этот день
+int perfectDayMoodBoosts = 0;        // сколько раз поднимали настроение
+bool perfectDayNotCaught = true;     // не была ли поймана за день
+
   final Random random = Random();
   bool _isSpinning = false;
   String _lastResult = '';
@@ -336,19 +485,24 @@ final List<Map<String, dynamic>> rewards = [
   {'title': 'Супер приз', 'coins': 100, 'mood': 5, 'icon': Icons.star},
 ];
   
-  void activatePromo(){
-    String code = promoController.text.trim().toUpperCase();
-    setState((){
-      if(code.isEmpty){
-        status = 'введите промокод';
-        return;
-      }
-      if(userUsedPromo.contains(code)){
-         status = 'ВЫ УЖЕ ИСПОЛЬЗОВАЛИ ЭТОТ ПРОМОКОД!!! ААААААААААААААААААААААААААААААААААААААААА';
-         return;
-      }
-     bool promoActivated = false;
-    String promoStatus = '';
+  void activatePromo() {
+  String code = promoController.text.trim().toUpperCase();
+
+  setState(() {
+    // Пустое поле ввода — просто напоминаем и выходим.
+    if (code.isEmpty) {
+      status = 'Введите промокод';
+      return;
+    }
+
+    // Промокод уже использован — второй раз награду не даём.
+    if (userUsedPromo.contains(code)) {
+      status = 'Вы уже использовали этот промокод!';
+      return;
+    }
+
+    bool promoActivated = false; // сработал ли один из трёх кодов
+    String promoStatus = '';     // сообщение об успехе
 
     if (code == 'COOKIE') {
       coins += 30;
@@ -369,13 +523,17 @@ final List<Map<String, dynamic>> rewards = [
       userUsedPromo.add(code);
       promoActivated = true;
     } else {
+      // Неизвестный код — ничего не начисляем.
       status = 'Такого промокода нет.';
       return;
     }
 
     if (promoActivated) {
-      int oldLevel = level;
+      // Когда открыты все три промокода — сработает "Мастер промокодов".
+      // Сама ачивка выдаётся внутри checkAchievements().
+      checkAchievements();
 
+      int oldLevel = level;
       checkLevel();
 
       if (level > oldLevel) {
@@ -384,10 +542,11 @@ final List<Map<String, dynamic>> rewards = [
         status = promoStatus;
       }
     }
-      
-      promoController.clear();
-    });
-  }
+
+    promoController.clear();
+  });
+}
+
   void getReward(){
     setState((){
        if(rewardTaken == true){
@@ -1198,12 +1357,34 @@ class _WheelScreenState extends State<WheelScreen> with SingleTickerProviderStat
   bool _isSpinning = false;
   String _lastResult = '';
   int _selectedIndex = 0;
+// Хранит текущее положение колеса в оборотах.
+// Нужно, чтобы новое вращение продолжалось
+// с места предыдущей остановки.
+double _currentTurns = 0;
 
+// Хранит анимацию вращения колеса.
+// Значение рассчитывается при каждом нажатии кнопки.
+late Animation<double> _turnAnimation;
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(duration: const Duration(seconds: 3), vsync: this);
-  }
+
+void initState() {
+  // Вызываем стандартную инициализацию StatefulWidget.
+  super.initState();
+
+  // Создаём контроллер вращения колеса.
+  _controller = AnimationController(
+    // Одно вращение длится три секунды.
+    duration: const Duration(seconds: 3),
+
+    // vsync отключает ненужную анимацию,
+    // когда экран не отображается.
+    vsync: this,
+  );
+
+  // Устанавливаем начальное положение колеса.
+  // Значение 0 означает, что колесо ещё не поворачивалось.
+  _turnAnimation = const AlwaysStoppedAnimation(0);
+}
 
   @override
   void dispose() {
@@ -1211,23 +1392,101 @@ class _WheelScreenState extends State<WheelScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  void spinWheel() {
-    if (_isSpinning) return;
-    _controller.reset();
-    _controller.forward();
-    setState(() => _isSpinning = true);
+ void spinWheel() {
+  // Не запускаем новое вращение, пока предыдущее не закончилось.
+  if (_isSpinning) return;
 
-    final Prize prize = LuckWheel.spin(widget.prizes);
+  // Случайно выбираем приз с учётом значения weight.
+  final Prize prize = LuckWheel.spin(widget.prizes);
 
-    Future.delayed(const Duration(seconds: 3), () {
-      setState(() {
-        _isSpinning = false;
-        _lastResult = prize.name;
-        _selectedIndex = widget.prizes.indexOf(prize);
-      });
-      // Здесь добавь логику применения приза (switch case из прошлого ответа)
-    });
+  // Получаем номер сектора, соответствующего выбранному призу.
+  final int selectedIndex = widget.prizes.indexOf(prize);
+
+  // Получаем общее количество секторов колеса.
+  final int sectorsCount = widget.prizes.length;
+
+  // Рассчитываем количество секторов,
+  // на которое нужно повернуть колесо до выбранного приза.
+  final int steps =
+      (sectorsCount - selectedIndex) % sectorsCount;
+
+  // Переводим номер нужного сектора в часть полного оборота.
+  // Например, при восьми секторах один сектор равен 1 / 8 оборота.
+  final double targetFraction = steps / sectorsCount;
+
+  // Получаем текущее положение колеса без учёта полных оборотов.
+  final double currentFraction = _currentTurns % 1;
+
+  // Вычисляем дополнительный поворот до выбранного сектора.
+  double additionalFraction =
+      targetFraction - currentFraction;
+
+  // Если нужный сектор находится позади текущего положения,
+  // добавляем ещё один полный оборот.
+  if (additionalFraction < 0) {
+    additionalFraction += 1;
   }
+
+  // Добавляем шесть полных оборотов для красивой анимации,
+  // а затем доворачиваем колесо до выбранного сектора.
+  final double targetTurns =
+      _currentTurns + 6 + additionalFraction;
+
+  // Возвращаем контроллер анимации в начальное состояние.
+  _controller.reset();
+
+  setState(() {
+    // Запоминаем, что колесо сейчас вращается.
+    // Пока значение true, кнопку нельзя нажать повторно.
+    _isSpinning = true;
+
+    // Убираем текст предыдущего результата.
+    _lastResult = '';
+
+    // Сохраняем номер выбранного сектора.
+    _selectedIndex = selectedIndex;
+
+    // Создаём анимацию от текущего положения колеса
+    // до положения выбранного сектора.
+    _turnAnimation = Tween<double>(
+      // Положение, с которого начинается вращение.
+      begin: _currentTurns,
+
+      // Положение, в котором колесо должно остановиться.
+      end: targetTurns,
+    ).animate(
+      CurvedAnimation(
+        // Подключаем созданный AnimationController.
+        parent: _controller,
+
+        // В начале колесо вращается быстро,
+        // а перед остановкой плавно замедляется.
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  });
+
+  // Запускаем вращение колеса.
+  _controller.forward().whenComplete(() {
+    // Если пользователь уже закрыл экран,
+    // не пытаемся обновлять его состояние.
+    if (!mounted) return;
+
+    setState(() {
+      // Запоминаем конечное положение колеса.
+      // Следующее вращение начнётся именно с этого места.
+      _currentTurns = targetTurns;
+
+      // Сообщаем, что вращение закончилось.
+      // После этого кнопку снова можно нажать.
+      _isSpinning = false;
+
+      // Показываем название того приза,
+      // на котором остановилась стрелка.
+      _lastResult = prize.name;
+    });
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -1247,15 +1506,9 @@ class _WheelScreenState extends State<WheelScreen> with SingleTickerProviderStat
       children: [
         // RotationTransition должен оборачивать само колесо.
         RotationTransition(
-          turns: Tween<double>(
-            begin: 0,
-            end: 10,
-          ).animate(
-            CurvedAnimation(
-              parent: _controller,
-              curve: Curves.easeOutCubic,
-            ),
-          ),
+          // Передаём готовую анимацию вращения в виджет колеса.
+// Она рассчитывается внутри метода spinWheel().
+turns: _turnAnimation,
           child: SizedBox.expand(
             child: CustomPaint(
               painter: WheelPainter(
