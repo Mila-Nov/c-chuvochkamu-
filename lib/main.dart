@@ -573,10 +573,35 @@ final List<Map<String, dynamic>> rewards = [
     });
    
   }
-  void nextRewardDay() {
+ void nextRewardDay() {
   setState(() {
-    if (rewardDay >=7 ) {
-      rewardDay = 1 ;
+    // ── Проверка дневных условий перед сменой дня ──
+
+    // "Абсолютный контроль": статы в норме → серия растёт, иначе сброс.
+    if (hunger <= 3 && energy >= 7 && mood >= 7) {
+      perfectBalanceDays++;
+    } else {
+      perfectBalanceDays = 0;
+    }
+
+    // "Невидимая угроза": воровала сегодня и не попалась → серия растёт.
+    if (perfectDayStoleFood && perfectDayNotCaught) {
+      invisibleDays++;
+    } else {
+      invisibleDays = 0;
+    }
+
+    // "Идеальный день": все четыре условия выполнены → ачивка.
+    if (perfectDayStoleFood &&
+        perfectDayWheelWin &&
+        perfectDayMoodBoosts >= 3 &&
+        perfectDayNotCaught) {
+      hadPerfectDay = true;
+    }
+
+    // ── Смена дня ──
+    if (rewardDay >= 7) {
+      rewardDay = 1;
       status = 'Новая неделя наград началась!';
     } else {
       rewardDay += 1;
@@ -584,8 +609,19 @@ final List<Map<String, dynamic>> rewards = [
     }
 
     rewardTaken = false;
+
+    // Сбрасываем дневные флаги — новый день начинается с чистого листа.
+    perfectDayStoleFood = false;
+    perfectDayWheelWin = false;
+    perfectDayMoodBoosts = 0;
+    perfectDayNotCaught = true;
   });
+
+  // Проверяем ачивки уже после сброса — чтобы "Идеальный день"
+  // успел отметиться до очистки флагов.
+  checkAchievements();
 }
+
   Color get backgroundColor {
     if (mood >= 8) return const Color(0xFFFFE4F1);
     if (mood >= 4) return const Color(0xFFE7F4FF);
@@ -618,67 +654,78 @@ int get chestPrice {
  int stealAttempts = 0; // счётчик попыток кражи, сбрасывается после успешной покупки
 
 void feedPet() {
-  const int foodPrice = 1; // стоимость еды в магазине
+  const int foodPrice = 1; // цена еды
 
-// ── 1. Есть деньги — просто покупаем еду ──
-if (coins >= foodPrice) {
-  setState(() {
-    // Списываем стоимость еды из баланса монет
-    coins -= foodPrice;
+  // ── 1. Есть деньги — покупаем еду честно ──
+  if (coins >= foodPrice) {
+    setState(() {
+      coins -= foodPrice;
 
-    // Уменьшаем уровень голода на 3 единицы, но не допускаем отрицательных значений.
-    // Функция max(0, ...) гарантирует, что голод не станет меньше 0 — персонаж не может быть «сытее» полного насыщения.
-    hunger = max(0, hunger - 3);
-      stealAttempts = 0; // сброс счётчика краж после покупки
+      // Покупка еды — это трата монет. Запоминаем навсегда:
+      // она закрывает путь к ачивкам "Без единой монеты"
+      // и "Легенда без титула".
+      everSpentCoins = true;
+
+      // Успешная покупка прерывает серию краж.
+      consecutiveSuccessfulSteals = 0;
+
+      hunger = max(0, hunger - 3);
+      stealAttempts = 0;
       status = '$petName купил(а) еду в магазине. Приятно поел(а)!';
     });
     checkLevel();
+    checkAchievements();
     return;
   }
 
-  // ── 2. Денег нет — пытаемся украсть (макс. 3 раза) ──
+  // ── 2. Красть больше нельзя — лимит попыток исчерпан ──
   if (stealAttempts >= 3) {
     setState(() {
-      status = 'Денег на еду нет, а красть больше нельзя — $petName был(а) пойман(а) слишком много раз. Нужно заработать!';
+      status = 'Денег на еду нет, а красть больше нельзя — '
+          '$petName был(а) пойман(а) слишком много раз. Нужно заработать!';
     });
     return;
   }
 
   // ── 3. Попытка кражи ──
+  // Шанс успеха: 1-я попытка 70%, 2-я 50%, 3-я 30%.
+  double successChance = 0.7 - (stealAttempts * 0.2);
   final random = Random();
-  // Шанс успеха уменьшается с каждой попыткой: 1-я — 70%, 2-я — 50%, 3-я — 30%
- // Базовый шанс успеха кражи — 70% (0.7).
-// За каждую предыдущую попытку (stealAttempts) шанс уменьшается на 20% (0.2).
-// Например: при 0 попытках шанс = 0.7, при 1 попытке = 0.5, при 2 попытках = 0.3 и т.д.
-double successChance = 0.7 - (stealAttempts * 0.2);
-
-// random.nextDouble() возвращает случайное число в диапазоне [0.0, 1.0) — то есть от 0 включительно до 1 не включительно.
-// Мы сравниваем это случайное значение с рассчитанным шансом успеха.
-// Если случайное число меньше successChance — условие истинно (кража удалась).
-// Это стандартный способ реализовать вероятностное событие: при successChance = 0.7
-// примерно в 70% случаев случайное число окажется меньше 0.7.
-bool isSuccess = random.nextDouble() < successChance;
-
+  bool isSuccess = random.nextDouble() < successChance;
 
   setState(() {
-    stealAttempts++;//+1 попытка к краже
+    stealAttempts++;
 
     if (isSuccess) {
-      // Успешная кража: голод уменьшается, настроение растёт
+      // Кража удалась: серия растёт на 1, день отмечается как "воровской".
+      consecutiveSuccessfulSteals++;
+      perfectDayStoleFood = true;
+      perfectDayNotCaught = true; // поимки не было
+
       hunger = max(0, hunger - 3);
       mood = min(10, mood + 2);
-      status = '$petName ловко стащил(а) еду и никого не поймали! Голод утолён, настроение поднялось.';
+      perfectDayMoodBoosts++; // настроение выросло — учитываем для "Идеального дня"
+
+      status = '$petName ловко стащил(а) еду и никого не поймали! '
+          'Голод утолён, настроение поднялось.';
     } else {
-      // Неудачная кража: энергия и настроение падают, голод растёт
+      // Кража провалилась: серия мгновенно обнуляется.
+      consecutiveSuccessfulSteals = 0;
+      perfectDayNotCaught = false; // день уже не "идеальный"
+
       energy = max(0, energy - 3);
       mood = max(0, mood - 3);
       hunger = min(10, hunger + 1);
-      status = '$petName поймали за воровством! Энергия и настроение упали, а от стресса есть хочется ещё больше.';
+
+      status = '$petName поймали за воровством! Энергия и настроение упали, '
+          'а от стресса есть хочется ещё больше.';
     }
   });
 
   checkLevel();
+  checkAchievements();
 }
+
 
 
 void openChest() {
@@ -715,20 +762,22 @@ void openChest() {
   });
 }
   void playWithPet() {
-    setState(() {
-      if (energy <= 1) {
-        mood = max(0, mood - 1);
-        status = '$petName устала. Сначала дай ей поспать.';
-      } else {
-        energy = max(0, energy - 2);
-        hunger = min(10, hunger + 1);
-        mood = min(10, mood + 2);
-        coins += 2;
-        status = 'Вы поиграли. Весело! +2 монетки.';
-      }
-      checkLevel();
-    });
-  }
+  setState(() {
+    if (energy <= 1) {
+      mood = max(0, mood - 1);
+      status = '$petName устала. Сначала дай ей поспать.';
+    } else {
+      energy = max(0, energy - 2);
+      hunger = min(10, hunger + 1);
+      mood = min(10, mood + 2);
+      coins += 2;
+      perfectDayMoodBoosts++; // настроение поднялось — для "Идеального дня"
+      status = 'Вы поиграли. Весело! +2 монетки.';
+    }
+    checkLevel();
+  });
+}
+
 void buyHouse() {
   setState(() {
     if (house == true) {
@@ -812,13 +861,109 @@ void buyHouse() {
     });
   }
 
-  void checkLevel() {
-    if (coins >= level * 8) {
-      level += 1;
-      mood = min(10, mood + 1);
-      status = 'Ура! Новый уровень: $level.';
-    }
+ void checkLevel() {
+  if (coins >= level * 8) {
+    level += 1;
+    mood = min(10, mood + 1);
+    status = 'Ура! Новый уровень: $level.';
   }
+
+  // Проверяем ачивки после каждого изменения статов/уровня.
+  // Так они не останутся незамеченными, если игрок что-то сделал
+  // вне колеса или кражи.
+  checkAchievements();
+}
+// ─────────────────────────────────────────────────────────────
+// ПРОВЕРКА ДОСТИЖЕНИЙ
+// Вызывается после важных событий: кража, промокод, вращение
+// колеса, "Новый день", покупка, смена статов.
+// Логика простая: если ачивка ещё не открыта и её условие
+// выполнено — добавляем в список разблокировок и начисляем монеты.
+// ─────────────────────────────────────────────────────────────
+void checkAchievements() {
+  final List<Achievement> toUnlock = []; // что открываем прямо сейчас
+
+  // Проверка "уже открыто?"
+  bool has(String id) => unlockedAchievements.contains(id);
+
+  // [0] Судьба благосклонна — выиграть джекпот хотя бы раз.
+  if (!has('jackpot_once') && jackpotStreak >= 1) {
+    toUnlock.add(achievements[0]);
+  }
+
+  // [1] Тень без права на ошибку — 10 краж подряд без поимки.
+  if (!has('steal_streak_10') && consecutiveSuccessfulSteals >= 10) {
+    toUnlock.add(achievements[1]);
+  }
+
+  // [2] Проклятие колеса — 5 вращений подряд "Пусто".
+  if (!has('wheel_curse_5') && consecutiveEmptySpins >= 5) {
+    toUnlock.add(achievements[2]);
+  }
+
+  // [3] Абсолютный контроль — 3 дня подряд идеальные статы.
+  if (!has('perfect_balance_3') && perfectBalanceDays >= 3) {
+    toUnlock.add(achievements[3]);
+  }
+
+  // [4] Без единой монеты — уровень 7, ни одной покупки,
+  //     значит ни домика, ни звания, ни сундука не куплено.
+  if (!has('no_spend_level_7') && level >= 7 && !everSpentCoins) {
+    toUnlock.add(achievements[4]);
+  }
+
+  // [5] Мастер промокодов — все 3 промокода активированы.
+  if (!has('promo_master') && userUsedPromo.length >= 3) {
+    toUnlock.add(achievements[5]);
+  }
+
+  // [6] Серийный везунчик — 2 джекпота подряд.
+  if (!has('jackpot_streak_2') && jackpotStreak >= 2) {
+    toUnlock.add(achievements[6]);
+  }
+
+  // [7] Невидимая угроза — 5 дней подряд кража без поимки.
+  if (!has('invisible_threat_5') && invisibleDays >= 5) {
+    toUnlock.add(achievements[7]);
+  }
+
+  // [8] Бесконечный марафон — 50 вращений колеса за сессию.
+  if (!has('marathon_50') && totalSpinsSession >= 50) {
+    toUnlock.add(achievements[8]);
+  }
+
+  // [9] Идеальный день — все условия за один игровой день.
+  if (!has('perfect_day') &&
+      perfectDayStoleFood &&
+      perfectDayWheelWin &&
+      perfectDayMoodBoosts >= 3 &&
+      perfectDayNotCaught) {
+    toUnlock.add(achievements[9]);
+  }
+
+  // [10] Легенда без титула — уровень 10 без домика и звания.
+  if (!has('legend_no_title') && level >= 10 && !house && !rnd) {
+    toUnlock.add(achievements[10]);
+  }
+
+  // Нечего открывать — выходим без перерисовки экрана.
+  if (toUnlock.isEmpty) return;
+
+  setState(() {
+    for (final a in toUnlock) {
+      unlockedAchievements.add(a.id); // помечаем как открытую
+      coins += a.rewardCoins;         // начисляем награду
+    }
+
+    // Собираем сообщение со всеми новыми ачивками разом,
+    // чтобы не перезаписывать друг друга.
+    final names = toUnlock
+        .map((a) => '🏆 ${a.title} (+${a.rewardCoins})')
+        .join(', ');
+    status = 'Открыты достижения: $names';
+  });
+}
+
 Widget rewardCard(int index) {
   final reward = rewards[index];
   final day = index + 1;
