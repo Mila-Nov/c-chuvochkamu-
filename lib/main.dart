@@ -381,15 +381,153 @@ bool perfectDayNotCaught = true;     // не была ли поймана за �
     const Prize(name: 'Джекпот! +50 монет', weight: 3, type: 'coins', value: 50),
     const Prize(name: 'Голод +2', weight: 13, type: 'hunger', value: 2),
   ];
- void showWheelDialog() { // оставь имя, если кнопка привязана к нему
+void showWheelDialog() {
   Navigator.push(
     context,
     MaterialPageRoute(
       builder: (_) => WheelScreen(
         prizes: wheelPrizes,
         colors: wheelColors,
+        onSpinResult: (prize) {
+          setState(() {
+            // Счётчик вращений растёт всегда.
+            totalSpinsSession++;
+
+            if (prize.type == 'coins' && prize.value >= 50) {
+              // Это джекпот: серия растёт.
+              jackpotStreak++;
+              perfectDayWheelWin = true;
+            } else if (prize.type == 'coins') {
+              // Обычный выигрыш монет — не джекпот, но и не "Пусто".
+              jackpotStreak = 0;
+              consecutiveEmptySpins = 0;
+            } else {
+              // Любой не-денежный приз обнуляет обе серии.
+              jackpotStreak = 0;
+              consecutiveEmptySpins = 0;
+            }
+          });
+
+          // Проверяем ачивки после обработки результата.
+          checkAchievements();
+        },
       ),
     ),
+  );
+}
+
+void showAchievementsScreen() {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Заголовок окна.
+                const Text(
+                  '🏆 Достижения',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Счётчик прогресса: открыто X из Y.
+                Text(
+                  'Открыто: ${unlockedAchievements.length} из ${achievements.length}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Генерируем карточку для каждого достижения.
+                ...achievements.map((a) {
+                  final bool unlocked = unlockedAchievements.contains(a.id);
+
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      // Открытая — золотистая, закрытая — серая.
+                      color: unlocked ? Colors.amber.shade50 : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: unlocked ? Colors.orange : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Иконка: для закрытой показываем замок.
+                        Icon(
+                          unlocked ? a.icon : Icons.lock,
+                          size: 40,
+                          color: unlocked ? Colors.orange : Colors.grey,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Название скрыто, пока ачивка не открыта.
+                              Text(
+                                unlocked ? a.title : '???',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                unlocked
+                                    ? a.story
+                                    : 'Достижение пока скрыто…',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Награда: +${a.rewardCoins} монет',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: unlocked
+                                      ? Colors.orange
+                                      : Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Закрыть'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 
@@ -741,7 +879,7 @@ void openChest() {
     }
 
     coins -= chestPrice;
-
+   everSpentCoins = true;
     final prize = random.nextInt(4);
 
     if (prize == 0) {
@@ -760,8 +898,9 @@ void openChest() {
 
     checkLevel();
   });
+checkAchievements();
 }
-  void playWithPet() {
+ void playWithPet() {
   setState(() {
     if (energy <= 1) {
       mood = max(0, mood - 1);
@@ -778,6 +917,7 @@ void openChest() {
   });
 }
 
+
 void buyHouse() {
   setState(() {
     if (house == true) {
@@ -785,12 +925,15 @@ void buyHouse() {
     } else if (coins >= 25) {
       coins -= 25;
       house = true;
+      everSpentCoins = true; // ← ДОБАВЬ ЭТУ СТРОКУ
       status = '$petName теперь живет в уютном домике!';
     } else {
       status = 'Нужно 25 монеток на домик.';
     }
   });
+  checkAchievements(); // ← ДОБАВЬ И ЭТУ: покупка могла открыть ачивку
 }
+
   void sleepPet() {
     setState(() {
      if (house == true){
@@ -841,25 +984,30 @@ void buyHouse() {
       else if (coins >= 20) { 
         coins -= 20;
         rnd = true;
+        everSpentCoins = true;
         mood = min(10, mood + 2);
         status = 'Купили звание. Теперь стиль +100.';
       } else {
         status = 'Нужно 20 монеток. Пока не хватает.';
       }
     });
+  checkAchievements();
   }
 
   void hugPet() {
-    setState(() {
-      if (energy <= 0) {
-        status = '$petName слишком устала для обнимашек.';
-      } else {
-        energy = max(0, energy - 1);
-        mood = min(10, mood + 3);
-        status = '$petName обняли. Настроение +3!';
-      }
-    });
-  }
+  setState(() {
+    if (energy <= 0) {
+      status = '$petName слишком устала для обнимашек.';
+    } else {
+      energy = max(0, energy - 1);
+      mood = min(10, mood + 3);
+      perfectDayMoodBoosts++; // объятие = буст настроения
+      status = '$petName обняли. Настроение +3!';
+    }
+    checkLevel();
+  });
+}
+
 
  void checkLevel() {
   if (coins >= level * 8) {
@@ -1424,6 +1572,13 @@ actionButton(
                     hugPet,
                   ),
                   actionButton(
+  'Достижения',
+  Icons.emoji_events,
+  Colors.orange,
+  showAchievementsScreen,
+),
+
+                  actionButton(
   'Промокод',
   Icons.lock_open,
   Colors.deepPurple,
@@ -1491,7 +1646,18 @@ Container(
 class WheelScreen extends StatefulWidget {
   final List<Prize> prizes;
   final List<Color> colors;
-  const WheelScreen({super.key, required this.prizes, required this.colors});
+
+  // Колбэк: сообщает главному экрану, какой приз выпал.
+  // Нужен, чтобы счётчики ачивок работали после закрытия экрана колеса.
+  final void Function(Prize prize)? onSpinResult;
+
+  const WheelScreen({
+    super.key,
+    required this.prizes,
+    required this.colors,
+    this.onSpinResult,
+  });
+ 
 
   @override
   State<WheelScreen> createState() => _WheelScreenState();
@@ -1630,6 +1796,8 @@ void initState() {
       // на котором остановилась стрелка.
       _lastResult = prize.name;
     });
+    // Теперь счётчики ачивок обновятся даже после закрытия окна.
+  widget.onSpinResult?.call(prize);
   });
 }
 
