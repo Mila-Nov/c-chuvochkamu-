@@ -420,6 +420,9 @@ void showAchievementsScreen() {
   showDialog(
     context: context,
     builder: (context) {
+      final int unlockedCount = unlockedAchievements.length;
+      final double progress = unlockedCount / achievements.length;
+
       return Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: ConstrainedBox(
@@ -431,7 +434,6 @@ void showAchievementsScreen() {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Заголовок окна.
                 const Text(
                   '🏆 Достижения',
                   style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
@@ -439,51 +441,64 @@ void showAchievementsScreen() {
 
                 const SizedBox(height: 8),
 
-                // Счётчик прогресса: открыто X из Y.
                 Text(
-                  'Открыто: ${unlockedAchievements.length} из ${achievements.length}',
+                  'Открыто: $unlockedCount из ${achievements.length}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
 
+                const SizedBox(height: 12),
+
+                // Шкала прогресса
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+
                 const SizedBox(height: 16),
 
-                // Генерируем карточку для каждого достижения.
-                ...achievements.map((a) {
-                  final bool unlocked = unlockedAchievements.contains(a.id);
+                // Список достижений: половина полностью, половина скрыто
+                ...List.generate(achievements.length, (index) {
+                  final bool unlocked = unlockedAchievements.contains(achievements[index].id);
+                  final bool showFull = unlocked || index < (achievements.length / 2).floor();
 
                   return Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      // Открытая — золотистая, закрытая — серая.
-                      color: unlocked ? Colors.amber.shade50 : Colors.grey.shade100,
+                      color: showFull
+                          ? Colors.amber.shade50
+                          : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: unlocked ? Colors.orange : Colors.transparent,
+                        color: showFull ? Colors.orange : Colors.transparent,
                         width: 2,
                       ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Иконка: для закрытой показываем замок.
                         Icon(
-                          unlocked ? a.icon : Icons.lock,
+                          showFull ? achievements[index].icon : Icons.lock,
                           size: 40,
-                          color: unlocked ? Colors.orange : Colors.grey,
+                          color: showFull ? Colors.orange : Colors.grey,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Название скрыто, пока ачивка не открыта.
                               Text(
-                                unlocked ? a.title : '???',
+                                showFull ? achievements[index].title : '???',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
@@ -491,9 +506,9 @@ void showAchievementsScreen() {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                unlocked
-                                    ? a.story
-                                    : 'Достижение пока скрыто…',
+                                showFull
+                                    ? achievements[index].story
+                                    : 'Это достижение скрыто. Продолжайте играть!',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey.shade700,
@@ -501,11 +516,11 @@ void showAchievementsScreen() {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Награда: +${a.rewardCoins} монет',
+                                'Награда: +\${achievements[index].rewardCoins} монет',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: unlocked
+                                  color: showFull
                                       ? Colors.orange
                                       : Colors.grey.shade500,
                                 ),
@@ -530,6 +545,7 @@ void showAchievementsScreen() {
     },
   );
 }
+
 
   
 void spinWheel() {
@@ -734,7 +750,7 @@ final List<Map<String, dynamic>> rewards = [
         perfectDayWheelWin &&
         perfectDayMoodBoosts >= 3 &&
         perfectDayNotCaught) {
-      hadPerfectDay = true;
+     
     }
 
     // ── Смена дня ──
