@@ -485,23 +485,23 @@ void showAchievementsScreen() {
                         switch (achievements[index].id) {
                           case 'steal_streak_10':
                             itemProgress = consecutiveSuccessfulSteals / 10.0;
-                            progressText = 'Серия краж: \$consecutiveSuccessfulSteals / 10';
+                            progressText = 'Серия краж: $consecutiveSuccessfulSteals / 10';
                             break;
                           case 'wheel_curse_5':
                             itemProgress = consecutiveEmptySpins / 5.0;
-                            progressText = 'Пусто подряд: \$consecutiveEmptySpins / 5';
+                            progressText = 'Пусто подряд: $consecutiveEmptySpins / 5';
                             break;
                           case 'perfect_balance_3':
                             itemProgress = perfectBalanceDays / 3.0;
-                            progressText = 'Идеальные дни: \$perfectBalanceDays / 3';
+                            progressText = 'Идеальные дни: $perfectBalanceDays / 3';
                             break;
                           case 'invisible_threat_5':
                             itemProgress = invisibleDays / 5.0;
-                            progressText = 'Невидимость: \$invisibleDays / 5';
+                            progressText = 'Невидимость: $invisibleDays / 5';
                             break;
                           case 'marathon_50':
                             itemProgress = totalSpinsSession / 50.0;
-                            progressText = 'Вращений: \$totalSpinsSession / 50';
+                            progressText = 'Вращений: $totalSpinsSession / 50';
                             break;
                           default:
                             itemProgress = 0.0;
