@@ -425,126 +425,207 @@ void showAchievementsScreen() {
 
       return Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  '🏆 Достижения',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
-                ),
+        child: Stack(
+          children: [
+            // Основной контент
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '🏆 Достижения',
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                    ),
 
-                const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-                Text(
-                  'Открыто: $unlockedCount из ${achievements.length}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Шкала прогресса
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Список достижений: половина полностью, половина скрыто
-                ...List.generate(achievements.length, (index) {
-                  final bool unlocked = unlockedAchievements.contains(achievements[index].id);
-                  final bool showFull = unlocked || index < (achievements.length / 2).floor();
-
-                  return Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: showFull
-                          ? Colors.amber.shade50
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: showFull ? Colors.orange : Colors.transparent,
-                        width: 2,
+                    Text(
+                      'Открыто: $unlockedCount из ${achievements.length}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          showFull ? achievements[index].icon : Icons.lock,
-                          size: 40,
-                          color: showFull ? Colors.orange : Colors.grey,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                showFull ? achievements[index].title : '???',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                showFull
-                                    ? achievements[index].story
-                                    : 'Это достижение скрыто. Продолжайте играть!',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Награда: +\${achievements[index].rewardCoins} монет',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: showFull
-                                      ? Colors.orange
-                                      : Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
+
+                    const SizedBox(height: 12),
+
+                    // Общая шкала прогресса
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                        minHeight: 8,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Список достижений
+                    ...List.generate(achievements.length, (index) {
+                      final bool unlocked = unlockedAchievements.contains(achievements[index].id);
+                      final bool showFull = unlocked || index < (achievements.length / 2).floor();
+
+                      // Прогресс для конкретного достижения (если есть счётчики)
+                      double itemProgress = 0.0;
+                      String progressText = '';
+
+                      if (unlocked) {
+                        itemProgress = 1.0;
+                        progressText = 'Открыто!';
+                      } else {
+                        // Логика отображения прогресса для разных типов ачивок
+                        switch (achievements[index].id) {
+                          case 'steal_streak_10':
+                            itemProgress = consecutiveSuccessfulSteals / 10.0;
+                            progressText = 'Серия краж: \$consecutiveSuccessfulSteals / 10';
+                            break;
+                          case 'wheel_curse_5':
+                            itemProgress = consecutiveEmptySpins / 5.0;
+                            progressText = 'Пусто подряд: \$consecutiveEmptySpins / 5';
+                            break;
+                          case 'perfect_balance_3':
+                            itemProgress = perfectBalanceDays / 3.0;
+                            progressText = 'Идеальные дни: \$perfectBalanceDays / 3';
+                            break;
+                          case 'invisible_threat_5':
+                            itemProgress = invisibleDays / 5.0;
+                            progressText = 'Невидимость: \$invisibleDays / 5';
+                            break;
+                          case 'marathon_50':
+                            itemProgress = totalSpinsSession / 50.0;
+                            progressText = 'Вращений: \$totalSpinsSession / 50';
+                            break;
+                          default:
+                            itemProgress = 0.0;
+                            progressText = 'Выполняйте условия, чтобы увидеть прогресс';
+                        }
+                      }
+
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: showFull
+                              ? Colors.amber.shade50
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: showFull ? Colors.orange : Colors.transparent,
+                            width: 2,
                           ),
                         ),
-                      ],
-                    ),
-                  );
-                }),
-
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Закрыть'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  showFull ? achievements[index].icon : Icons.lock,
+                                  size: 40,
+                                  color: showFull ? Colors.orange : Colors.grey,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        showFull ? achievements[index].title : '???',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        showFull
+                                            ? achievements[index].story
+                                            : 'Это достижение скрыто. Продолжайте играть!',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Шкала прогресса для конкретного достижения
+                                      if (showFull || unlocked)
+                                        Padding(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                progressText,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade800,
+                                                ),
+                                              ),
+                                              LinearProgressIndicator(
+                                                value: itemProgress.clamp(0.0, 1.0),
+                                                backgroundColor: Colors.grey.shade200,
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                  unlocked ? Colors.orange : Colors.amber,
+                                                ),
+                                                minHeight: 6,
+                                                borderRadius: BorderRadius.circular(3),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      // Награда (отображается корректно)
+                                      Text(
+                                        'Награда: +${achievements[index].rewardCoins} монет',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: showFull
+                                              ? Colors.orange
+                                              : Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+
+            // Кнопка закрытия в виде крестика (в правом верхнем углу)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.grey),
+                onPressed: () => Navigator.pop(context),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ],
         ),
       );
     },
   );
 }
+
 
 
   
