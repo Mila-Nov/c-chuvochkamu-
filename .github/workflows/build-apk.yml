@@ -1,9 +1,12 @@
-name: Build APK
+name: Build release APK
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -13,6 +16,12 @@ jobs:
       - name: Get code
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -20,18 +29,87 @@ jobs:
           cache: true
 
       - name: Create Android project files
-        run: flutter create --platforms=android .
+        run: flutter create --platforms=android --org com.milanov .
 
       - name: Add internet permission
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          manifest = Path("android/app/src/main/AndroidManifest.xml")
-          text = manifest.read_text()
-          permission = '<uses-permission android:name="android.permission.INTERNET"/>'
-          if permission not in text:
-              text = text.replace("<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">", f"<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\\n    {permission}")
-              manifest.write_text(text)
+          import xml.etree.ElementTree as ET
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          android = 'http://schemas.android.com/apk/res/android'
+          ET.register_namespace('android', android)
+          tree = ET.parse(manifest)
+          root = tree.getroot()
+          name = f'{{{android}}}name'
+          permission = 'android.permission.INTERNET'
+          if not any(node.get(name) == permission for node in root.findall('uses-permission')):
+              root.insert(0, ET.Element('uses-permission', {name: permission}))
+              tree.write(manifest, encoding='utf-8', xml_declaration=True)
+          PY
+
+      - name: Restore release signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          encoded = os.environ.get('ANDROID_KEYSTORE_BASE64', '')
+          if not encoded:
+              raise SystemExit('Add the ANDROID_KEYSTORE_BASE64 repository secret first.')
+          target = Path(os.environ['RUNNER_TEMP']) / 'mirokumi-release.jks'
+          target.write_bytes(base64.b64decode(''.join(encoded.split()), validate=True))
+          target.chmod(0o600)
+          PY
+
+      - name: Configure release signing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          kotlin = Path('android/app/build.gradle.kts')
+          groovy = Path('android/app/build.gradle')
+          if kotlin.exists():
+              target = kotlin
+              old = 'signingConfig = signingConfigs.getByName("debug")'
+              new = 'signingConfig = signingConfigs.getByName("releaseUpload")'
+              signing = '''
+              signingConfigs {
+                  create("releaseUpload") {
+                      storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias = "mirokumi"
+                      keyPassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  }
+              }
+          '''
+          elif groovy.exists():
+              target = groovy
+              old = 'signingConfig = signingConfigs.debug'
+              new = 'signingConfig = signingConfigs.releaseUpload'
+              signing = '''
+              signingConfigs {
+                  releaseUpload {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias "mirokumi"
+                      keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  }
+              }
+          '''
+          else:
+              raise SystemExit('Android app Gradle file was not found.')
+
+          text = target.read_text()
+          if text.count(old) != 1 or text.count('buildTypes {') != 1:
+              raise SystemExit('Unexpected Gradle template: configure release signing manually.')
+          text = text.replace('buildTypes {', signing + '\n    buildTypes {', 1)
+          text = text.replace(old, new, 1)
+          target.write_text(text)
           PY
 
       - name: Install dependencies
@@ -40,11 +118,47 @@ jobs:
       - name: Generate app icon
         run: dart run flutter_launcher_icons
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/mirokumi-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo 'Add the ANDROID_KEYSTORE_PASSWORD repository secret first.'
+            exit 1
+          fi
+          flutter build apk --release --build-number=${{ github.run_number }}
 
-      - name: Upload APK
+      - name: Check release APK
+        run: |
+          python3 - <<'PY'
+          import os
+          import subprocess
+          from pathlib import Path
+
+          apk = Path('build/app/outputs/flutter-apk/app-release.apk')
+          if not apk.is_file():
+              raise SystemExit('Release APK was not generated.')
+          sdk = Path(os.environ.get('ANDROID_HOME') or os.environ['ANDROID_SDK_ROOT'])
+          analyzer = sdk / 'cmdline-tools/latest/bin/apkanalyzer'
+          debug = subprocess.check_output(
+              [str(analyzer), 'manifest', 'debuggable', str(apk)], text=True
+          ).strip().lower()
+          if debug != 'false':
+              raise SystemExit('APK is debuggable: refusing to upload it.')
+          package = subprocess.check_output(
+              [str(analyzer), 'manifest', 'application-id', str(apk)], text=True
+          ).strip()
+          print(f'Release APK ready. Application ID: {package}')
+          PY
+
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: pet-app-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: mirokumi-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/mirokumi-release.jks"
